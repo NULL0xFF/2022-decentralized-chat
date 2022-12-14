@@ -1,7 +1,8 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Client" type="Application" factoryName="Application">
+  <configuration default="false" name="Help" type="Application" factoryName="Application">
     <option name="MAIN_CLASS_NAME" value="com.chat.Main" />
     <module name="decentralized-chat" />
+    <option name="PROGRAM_PARAMETERS" value="-h" />
     <option name="WORKING_DIRECTORY" value="$OutputPath$" />
     <extension name="coverage">
       <pattern>

@@ -1,11 +1,12 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Server" type="Application" factoryName="Application">
-    <option name="MAIN_CLASS_NAME" value="launch.Server" />
+    <option name="MAIN_CLASS_NAME" value="com.chat.Main" />
     <module name="decentralized-chat" />
+    <option name="PROGRAM_PARAMETERS" value="-s" />
     <option name="WORKING_DIRECTORY" value="$OutputPath$" />
     <extension name="coverage">
       <pattern>
-        <option name="PATTERN" value="launch.*" />
+        <option name="PATTERN" value="com.chat.*" />
         <option name="ENABLED" value="true" />
       </pattern>
     </extension>
