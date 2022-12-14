@@ -1,9 +1,11 @@
 package launch;
 
+import client.ChatClient;
+
 public class Client {
 
     public static void main(String[] args) {
-        System.out.println("This is Client.");
+        new ChatClient();
     }
 
 }

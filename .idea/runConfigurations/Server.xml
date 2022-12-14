@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Server" type="Application" factoryName="Application">
-    <option name="MAIN_CLASS_NAME" value="launch.Client" />
+    <option name="MAIN_CLASS_NAME" value="launch.Server" />
     <module name="decentralized-chat" />
     <option name="WORKING_DIRECTORY" value="$OutputPath$" />
     <extension name="coverage">
