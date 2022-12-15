@@ -3,9 +3,7 @@ package com.chat.server;
 import com.chat.data.Authentication;
 import com.chat.data.Message;
 
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -39,9 +37,6 @@ public class Server {
             while (true) {
                 try {
                     Socket clientSocket = this.serverSocket.accept();
-                    System.out.println("client " + clientSocket.getInetAddress() + " connected");
-
-                    System.out.println("checking authentication ...");
                     ObjectOutputStream outputStream = new ObjectOutputStream(clientSocket.getOutputStream());
                     ObjectInputStream inputStream = new ObjectInputStream(clientSocket.getInputStream());
                     Object object = inputStream.readObject();
@@ -49,7 +44,6 @@ public class Server {
                         synchronized (whiteList) {
                             if (whiteList.containsKey(auth.getUsername())) {
                                 if (!whiteList.get(auth.getUsername()).equals(auth.getPassword())) {
-                                    System.out.println("authentication failed");
                                     outputStream.writeObject(AUTH_FAILED);
                                     inputStream.close();
                                     outputStream.close();
@@ -58,7 +52,6 @@ public class Server {
                                 }
                             }
                             // New & Authenticated user
-                            System.out.println("authentication successful");
                             outputStream.writeObject(new Message(auth, "authentication successful"));
                             whiteList.put(auth.getUsername(), auth.getPassword());
                             synchronized (clientList) {
@@ -100,7 +93,6 @@ public class Server {
             while (true) {
                 Object object = inputStream.readObject();
                 if (object instanceof Message message) {
-                    System.out.println(message);
                     if (message.isCommand()) {
                         doCommand(clientSocket, message);
                     } else {
@@ -117,7 +109,57 @@ public class Server {
     }
 
     private void startConsole() {
+        System.out.println("server console");
+        BufferedReader console = new BufferedReader(new InputStreamReader(System.in));
+        while (true) {
+            try {
+                System.out.print("> ");
+                String input = console.readLine();
+                if (input.equals("stop")) {
+                    clientInputStreams.forEach((socket, stream) -> {
+                        try {
+                            stream.close();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    });
+                    clientOutputStreams.forEach((socket, stream) -> {
+                        try {
+                            stream.close();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    });
+                    for (Socket socket : clientList) {
+                        try {
+                            socket.close();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    System.exit(0);
+                } else if (input.startsWith("user ")) {
+                    String userCommand = input.substring(5);
+                    if (userCommand.startsWith("add ")) {
+                        addUser(userCommand.substring(4).split(" "));
+                    }
+                    if (userCommand.startsWith("remove ")) {
+                        removeUser(userCommand.substring(7));
+                    }
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
 
+    private void addUser(String[] identification) {
+        Authentication auth = new Authentication(identification[0], identification[1]);
+        whiteList.put(auth.getUsername(), auth.getPassword());
+    }
+
+    private void removeUser(String username) {
+        whiteList.remove(username);
     }
 
     private void doCommand(Socket clientSocket, Message message) {
@@ -127,7 +169,6 @@ public class Server {
                 doAdminAction(message);
             }
         } else if (command.equals("leave")) {
-            System.out.println("remove user " + message.getAuthentication().getUsername() + " from whitelist");
             removeClient(clientSocket);
             synchronized (whiteList) {
                 whiteList.remove(message.getAuthentication().getUsername());
