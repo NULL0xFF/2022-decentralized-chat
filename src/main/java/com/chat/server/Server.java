@@ -57,6 +57,7 @@ public class Server {
                                 }
                             }
                             // New & Authenticated user
+                            System.out.println("authentication successful");
                             outputStream.writeObject(new Message(auth, "authentication successful"));
                             whiteList.put(auth.getUsername(), auth.getPassword());
                             synchronized (clientList) {
@@ -96,6 +97,7 @@ public class Server {
             while (true) {
                 Object object = inputStream.readObject();
                 if (object instanceof Message message) {
+                    System.out.println(message);
                     messageList.add(message);
                     new Thread(() -> broadcast(message)).start();
                 }
