@@ -18,6 +18,7 @@ public class ChatUI {
     private JTextArea chatList;
     private JTextArea inputArea;
     private JButton sendButton;
+    private JScrollPane chatPane;
 
     public ChatUI(String host, int port, Authentication auth) {
         this.authentication = auth;
@@ -76,6 +77,10 @@ public class ChatUI {
 
     public void doReceive(Message data) {
         chatList.append(data.toString() + "\n");
+        doUpdate();
     }
 
+    private void doUpdate() {
+        chatPane.getVerticalScrollBar().setValue(chatPane.getVerticalScrollBar().getMaximum());
+    }
 }
