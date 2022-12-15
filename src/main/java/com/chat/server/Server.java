@@ -97,8 +97,8 @@ public class Server {
                         doCommand(clientSocket, message);
                     } else {
                         messageList.add(message);
+                        new Thread(() -> broadcast(message)).start();
                     }
-                    new Thread(() -> broadcast(message)).start();
                 }
             }
         } catch (ClassNotFoundException | IOException e) {
@@ -115,40 +115,54 @@ public class Server {
             try {
                 System.out.print("> ");
                 String input = console.readLine();
-                if (input.equals("stop")) {
-                    clientInputStreams.forEach((socket, stream) -> {
-                        try {
-                            stream.close();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    });
-                    clientOutputStreams.forEach((socket, stream) -> {
-                        try {
-                            stream.close();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    });
-                    for (Socket socket : clientList) {
-                        try {
-                            socket.close();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                    System.exit(0);
-                } else if (input.startsWith("user ")) {
-                    String userCommand = input.substring(5);
-                    if (userCommand.startsWith("add ")) {
-                        addUser(userCommand.substring(4).split(" "));
-                    }
-                    if (userCommand.startsWith("remove ")) {
-                        removeUser(userCommand.substring(7));
-                    }
-                }
+                doAdminCommand(input);
             } catch (IOException e) {
                 e.printStackTrace();
+            }
+        }
+    }
+
+    private void stopServer() {
+        clientInputStreams.forEach((socket, stream) -> {
+            try {
+                stream.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
+        clientOutputStreams.forEach((socket, stream) -> {
+            try {
+                stream.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
+        for (Socket socket : clientList) {
+            try {
+                socket.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        System.exit(0);
+    }
+
+    private void doAdminCommand(String command) {
+        if (command.equals("stop")) {
+            stopServer();
+        } else if (command.startsWith("user ")) {
+            String userCommand = command.substring(5);
+            if (userCommand.startsWith("add ")) {
+                addUser(userCommand.substring(4).split(" "));
+            } else if (userCommand.startsWith("remove ")) {
+                removeUser(userCommand.substring(7).split(" ")[0]);
+            } else if (userCommand.startsWith("admin ")) {
+                String userAdminCommand = userCommand.substring(6);
+                if (userAdminCommand.startsWith("add ")) {
+                    addAdmin(userAdminCommand.substring(4).split(" ")[0]);
+                } else if (userAdminCommand.startsWith("remove ")) {
+                    removeAdmin(userAdminCommand.substring(7).split(" ")[0]);
+                }
             }
         }
     }
@@ -162,11 +176,22 @@ public class Server {
         whiteList.remove(username);
     }
 
+
+    private void addAdmin(String username) {
+        if (whiteList.containsKey(username)) {
+            adminList.add(username);
+        }
+    }
+
+    private void removeAdmin(String username) {
+        adminList.remove(username);
+    }
+
     private void doCommand(Socket clientSocket, Message message) {
         String command = message.getMessage().substring(1);
         if (command.startsWith("admin ")) {
             if (isAdmin(message.getAuthentication())) {
-                doAdminAction(message);
+                doAdminCommand(command.substring(6));
             }
         } else if (command.equals("leave")) {
             removeClient(clientSocket);
@@ -204,9 +229,6 @@ public class Server {
 
     private boolean isAdmin(Authentication authentication) {
         return adminList.contains(authentication.getUsername());
-    }
-
-    private void doAdminAction(Message message) {
     }
 
     private void broadcast(Message message) {
