@@ -4,6 +4,7 @@ import com.chat.data.Authentication;
 import com.chat.data.Message;
 
 import javax.swing.*;
+import javax.swing.text.DefaultCaret;
 import java.awt.event.ActionEvent;
 import java.awt.event.InputEvent;
 import java.awt.event.WindowAdapter;
@@ -14,11 +15,9 @@ public class ChatUI {
     private final Authentication authentication;
     private final Client client;
     private JPanel contentPane;
-    private JList<Message> chatList;
-    private DefaultListModel<Message> model;
+    private JTextArea chatList;
     private JTextArea inputArea;
     private JButton sendButton;
-    private JScrollPane chatPane;
 
     public ChatUI(String host, int port, Authentication auth) {
         this.authentication = auth;
@@ -44,6 +43,7 @@ public class ChatUI {
             }
         };
 
+        ((DefaultCaret) chatList.getCaret()).setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
         inputArea.getInputMap().put(KeyStroke.getKeyStroke("ENTER"), "send-message");
         inputArea.getInputMap().put(KeyStroke.getKeyStroke('\n', InputEvent.CTRL_DOWN_MASK), "insert-break");
         inputArea.getActionMap().put("send-message", sendAction);
@@ -55,15 +55,13 @@ public class ChatUI {
     }
 
     private void doConnect() {
-        Message message = new Message(null, "connecting to server...");
-        model.addElement(message);
+        chatList.append("connecting to server...\n");
         if (client.connect(this)) {
-            model.removeElement(message);
-            model.addElement(new Message(null, "connected to server"));
+            chatList.append("connected to server\n");
             inputArea.setEnabled(true);
             sendButton.setEnabled(true);
         } else {
-            model.addElement(new Message(null, "failed to connect"));
+            chatList.append("failed to connect\n");
         }
     }
 
@@ -77,16 +75,7 @@ public class ChatUI {
     }
 
     public void doReceive(Message data) {
-        model.addElement(data);
-        doUpdate();
+        chatList.append(data.toString() + "\n");
     }
 
-    private void doUpdate() {
-        chatPane.getVerticalScrollBar().setValue(chatPane.getVerticalScrollBar().getMaximum());
-    }
-
-    private void createUIComponents() {
-        model = new DefaultListModel<>();
-        chatList = new JList<>(model);
-    }
 }
