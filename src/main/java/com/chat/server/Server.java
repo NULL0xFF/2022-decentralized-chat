@@ -19,6 +19,7 @@ public class Server {
     private static final int PORT_NUMBER = 20180;
     private final List<Socket> clientList = new ArrayList<>();
     private final List<Message> messageList = new ArrayList<>();
+    private final List<String> adminList = new ArrayList<>();
     private final Map<String, String> whiteList = new HashMap<>();
     private final Map<Socket, ObjectOutputStream> clientOutputStreams = new HashMap<>();
     private final Map<Socket, ObjectInputStream> clientInputStreams = new HashMap<>();
@@ -78,6 +79,8 @@ public class Server {
                 }
             }
         }).start();
+
+        startConsole();
     }
 
     private void history(Socket clientSocket) {
@@ -98,36 +101,71 @@ public class Server {
                 Object object = inputStream.readObject();
                 if (object instanceof Message message) {
                     System.out.println(message);
-                    messageList.add(message);
+                    if (message.isCommand()) {
+                        doCommand(clientSocket, message);
+                    } else {
+                        messageList.add(message);
+                    }
                     new Thread(() -> broadcast(message)).start();
                 }
             }
         } catch (ClassNotFoundException | IOException e) {
             e.printStackTrace();
         } finally {
-            synchronized (clientList) {
-                synchronized (clientInputStreams) {
-                    try {
-                        clientInputStreams.remove(clientSocket).close();
-                    } catch (IOException ex) {
-                        ex.printStackTrace();
-                    }
-                }
-                synchronized (clientOutputStreams) {
-                    try {
-                        clientOutputStreams.remove(clientSocket).close();
-                    } catch (IOException ex) {
-                        ex.printStackTrace();
-                    }
-                }
-                clientList.remove(clientSocket);
-                try {
-                    clientSocket.close();
-                } catch (IOException ex) {
-                    ex.printStackTrace();
-                }
+            removeClient(clientSocket);
+        }
+    }
+
+    private void startConsole() {
+
+    }
+
+    private void doCommand(Socket clientSocket, Message message) {
+        String command = message.getMessage().substring(1);
+        if (command.startsWith("admin ")) {
+            if (isAdmin(message.getAuthentication())) {
+                doAdminAction(message);
+            }
+        } else if (command.equals("leave")) {
+            System.out.println("remove user " + message.getAuthentication().getUsername() + " from whitelist");
+            removeClient(clientSocket);
+            synchronized (whiteList) {
+                whiteList.remove(message.getAuthentication().getUsername());
             }
         }
+    }
+
+    private void removeClient(Socket clientSocket) {
+        synchronized (clientList) {
+            synchronized (clientInputStreams) {
+                try {
+                    clientInputStreams.remove(clientSocket).close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            synchronized (clientOutputStreams) {
+                try {
+                    clientOutputStreams.remove(clientSocket).close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            clientList.remove(clientSocket);
+            try {
+                clientSocket.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+
+    private boolean isAdmin(Authentication authentication) {
+        return adminList.contains(authentication.getUsername());
+    }
+
+    private void doAdminAction(Message message) {
     }
 
     private void broadcast(Message message) {
