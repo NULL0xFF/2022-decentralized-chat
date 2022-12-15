@@ -14,15 +14,18 @@ public class ChatUI {
 
     private final Authentication authentication;
     private final Client client;
+    private final JFrame frame;
     private JPanel contentPane;
     private JTextArea chatList;
     private JTextArea inputArea;
     private JButton sendButton;
     private JScrollPane chatPane;
+    private Action leaveAction;
 
     public ChatUI(String host, int port, Authentication auth) {
         this.authentication = auth;
-        JFrame frame = new JFrame();
+
+        frame = new JFrame();
         frame.setContentPane(contentPane);
 
         frame.pack();
@@ -55,6 +58,10 @@ public class ChatUI {
         doConnect();
     }
 
+    public void setLeaveAction(Action action) {
+        this.leaveAction = action;
+    }
+
     private void doConnect() {
         chatList.append("connecting to server...\n");
         if (client.connect(this)) {
@@ -73,6 +80,19 @@ public class ChatUI {
 
         Message message = new Message(authentication, inputString);
         client.send(message);
+
+        if (message.isCommand()) {
+            doCommand(message);
+        }
+    }
+
+    private void doCommand(Message message) {
+        String command = message.getMessage().substring(1);
+        if (command.equals("leave")) {
+            client.leave();
+            leaveAction.actionPerformed(new ActionEvent(this, ActionEvent.ACTION_PERFORMED, null));
+            dispose();
+        }
     }
 
     public void doReceive(Message data) {
@@ -82,5 +102,9 @@ public class ChatUI {
 
     private void doUpdate() {
         chatPane.getVerticalScrollBar().setValue(chatPane.getVerticalScrollBar().getMaximum());
+    }
+
+    public void dispose() {
+        frame.dispose();
     }
 }

@@ -3,11 +3,13 @@ package com.chat.client;
 import com.chat.data.Authentication;
 import com.chat.data.Message;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.SocketException;
+import java.util.Arrays;
 
 public class Client {
 
@@ -48,6 +50,40 @@ public class Client {
         return true;
     }
 
+    public void leave() {
+        Socket socket = null;
+        ObjectOutputStream outputStream = null;
+        ObjectInputStream inputStream = null;
+        try {
+            socket = new Socket(host, port);
+            outputStream = new ObjectOutputStream(socket.getOutputStream());
+            inputStream = new ObjectInputStream(socket.getInputStream());
+            outputStream.writeObject(authentication);
+            Object object = inputStream.readObject();
+            if (object instanceof Message message && message.getAuthentication() != null) {
+                outputStream.writeObject(new Message(authentication, "/leave"));
+            }
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                inputStream.close();
+            } catch (IOException | NullPointerException e) {
+                e.printStackTrace();
+            }
+            try {
+                outputStream.close();
+            } catch (IOException | NullPointerException e) {
+                e.printStackTrace();
+            }
+            try {
+                socket.close();
+            } catch (IOException | NullPointerException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
     private void receive(ChatUI ui) {
         thread = new Thread(() -> {
             while (true) {
@@ -56,8 +92,9 @@ public class Client {
                     if (object instanceof Message message) {
                         ui.doReceive(message);
                     }
-                } catch (SocketException e) {
+                } catch (SocketException | EOFException e) {
                     e.printStackTrace();
+                    ui.doReceive(new Message(null, Arrays.toString(e.getStackTrace())));
                     break;
                 } catch (IOException | ClassNotFoundException e) {
                     e.printStackTrace();
@@ -76,22 +113,22 @@ public class Client {
     }
 
     public void disconnect() {
-        if (thread != null) {
-            thread.interrupt();
+        if (this.thread != null) {
+            this.thread.interrupt();
         }
         try {
-            inputStream.close();
-        } catch (IOException e) {
+            this.inputStream.close();
+        } catch (IOException | NullPointerException e) {
             e.printStackTrace();
         }
         try {
-            outputStream.close();
-        } catch (IOException e) {
+            this.outputStream.close();
+        } catch (IOException | NullPointerException e) {
             e.printStackTrace();
         }
         try {
-            socket.close();
-        } catch (IOException e) {
+            this.socket.close();
+        } catch (IOException | NullPointerException e) {
             e.printStackTrace();
         }
     }

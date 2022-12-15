@@ -4,6 +4,7 @@ import com.chat.data.Authentication;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionEvent;
 
 public class ChatListUI {
 
@@ -38,16 +39,41 @@ public class ChatListUI {
             }
 
             JPanel panel = new JPanel(new BorderLayout(0, 0));
+            JPanel buttonPanel = new JPanel(new GridLayout(1, 0, 0, 0));
             JButton connectButton = new JButton("Connect");
+            JButton deleteButton = new JButton("Delete");
 
             Dimension panelDimension = new Dimension(250, 40);
             panel.setMinimumSize(panelDimension);
             panel.setMaximumSize(panelDimension);
             panel.setPreferredSize(new Dimension(-1, 40));
-            connectButton.addActionListener(e -> new ChatUI(host, port, authentication));
+            Action leaveAction = new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    entryPanel.remove(panel);
+                    entryPanel.updateUI();
+                }
+            };
+            var uiRef = new Object() {
+                ChatUI chatUI = null;
+            };
+            connectButton.addActionListener(e -> {
+                uiRef.chatUI = new ChatUI(host, port, authentication);
+                uiRef.chatUI.setLeaveAction(leaveAction);
+            });
+            deleteButton.addActionListener(e -> {
+                if (uiRef.chatUI != null) {
+                    uiRef.chatUI.dispose();
+                }
+                new Client(host, port, authentication).leave();
+                leaveAction.actionPerformed(new ActionEvent(this, ActionEvent.ACTION_PERFORMED, null));
+            });
+
+            buttonPanel.add(connectButton);
+            buttonPanel.add(deleteButton);
 
             panel.add(new JLabel(host + ":" + port), BorderLayout.CENTER);
-            panel.add(connectButton, BorderLayout.EAST);
+            panel.add(buttonPanel, BorderLayout.EAST);
 
             entryPanel.add(panel);
 

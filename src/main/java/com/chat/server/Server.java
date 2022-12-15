@@ -3,9 +3,7 @@ package com.chat.server;
 import com.chat.data.Authentication;
 import com.chat.data.Message;
 
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -19,6 +17,7 @@ public class Server {
     private static final int PORT_NUMBER = 20180;
     private final List<Socket> clientList = new ArrayList<>();
     private final List<Message> messageList = new ArrayList<>();
+    private final List<String> adminList = new ArrayList<>();
     private final Map<String, String> whiteList = new HashMap<>();
     private final Map<Socket, ObjectOutputStream> clientOutputStreams = new HashMap<>();
     private final Map<Socket, ObjectInputStream> clientInputStreams = new HashMap<>();
@@ -38,9 +37,6 @@ public class Server {
             while (true) {
                 try {
                     Socket clientSocket = this.serverSocket.accept();
-                    System.out.println("client " + clientSocket.getInetAddress() + " connected");
-
-                    System.out.println("checking authentication ...");
                     ObjectOutputStream outputStream = new ObjectOutputStream(clientSocket.getOutputStream());
                     ObjectInputStream inputStream = new ObjectInputStream(clientSocket.getInputStream());
                     Object object = inputStream.readObject();
@@ -48,7 +44,6 @@ public class Server {
                         synchronized (whiteList) {
                             if (whiteList.containsKey(auth.getUsername())) {
                                 if (!whiteList.get(auth.getUsername()).equals(auth.getPassword())) {
-                                    System.out.println("authentication failed");
                                     outputStream.writeObject(AUTH_FAILED);
                                     inputStream.close();
                                     outputStream.close();
@@ -57,7 +52,6 @@ public class Server {
                                 }
                             }
                             // New & Authenticated user
-                            System.out.println("authentication successful");
                             outputStream.writeObject(new Message(auth, "authentication successful"));
                             whiteList.put(auth.getUsername(), auth.getPassword());
                             synchronized (clientList) {
@@ -78,6 +72,8 @@ public class Server {
                 }
             }
         }).start();
+
+        startConsole();
     }
 
     private void history(Socket clientSocket) {
@@ -97,37 +93,142 @@ public class Server {
             while (true) {
                 Object object = inputStream.readObject();
                 if (object instanceof Message message) {
-                    System.out.println(message);
-                    messageList.add(message);
-                    new Thread(() -> broadcast(message)).start();
+                    if (message.isCommand()) {
+                        doCommand(clientSocket, message);
+                    } else {
+                        messageList.add(message);
+                        new Thread(() -> broadcast(message)).start();
+                    }
                 }
             }
         } catch (ClassNotFoundException | IOException e) {
             e.printStackTrace();
         } finally {
-            synchronized (clientList) {
-                synchronized (clientInputStreams) {
-                    try {
-                        clientInputStreams.remove(clientSocket).close();
-                    } catch (IOException ex) {
-                        ex.printStackTrace();
-                    }
-                }
-                synchronized (clientOutputStreams) {
-                    try {
-                        clientOutputStreams.remove(clientSocket).close();
-                    } catch (IOException ex) {
-                        ex.printStackTrace();
-                    }
-                }
-                clientList.remove(clientSocket);
-                try {
-                    clientSocket.close();
-                } catch (IOException ex) {
-                    ex.printStackTrace();
+            removeClient(clientSocket);
+        }
+    }
+
+    private void startConsole() {
+        System.out.println("server console");
+        BufferedReader console = new BufferedReader(new InputStreamReader(System.in));
+        while (true) {
+            try {
+                System.out.print("> ");
+                String input = console.readLine();
+                doAdminCommand(input);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void stopServer() {
+        clientInputStreams.forEach((socket, stream) -> {
+            try {
+                stream.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
+        clientOutputStreams.forEach((socket, stream) -> {
+            try {
+                stream.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
+        for (Socket socket : clientList) {
+            try {
+                socket.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        System.exit(0);
+    }
+
+    private void doAdminCommand(String command) {
+        if (command.equals("stop")) {
+            stopServer();
+        } else if (command.startsWith("user ")) {
+            String userCommand = command.substring(5);
+            if (userCommand.startsWith("add ")) {
+                addUser(userCommand.substring(4).split(" "));
+            } else if (userCommand.startsWith("remove ")) {
+                removeUser(userCommand.substring(7).split(" ")[0]);
+            } else if (userCommand.startsWith("admin ")) {
+                String userAdminCommand = userCommand.substring(6);
+                if (userAdminCommand.startsWith("add ")) {
+                    addAdmin(userAdminCommand.substring(4).split(" ")[0]);
+                } else if (userAdminCommand.startsWith("remove ")) {
+                    removeAdmin(userAdminCommand.substring(7).split(" ")[0]);
                 }
             }
         }
+    }
+
+    private void addUser(String[] identification) {
+        Authentication auth = new Authentication(identification[0], identification[1]);
+        whiteList.put(auth.getUsername(), auth.getPassword());
+    }
+
+    private void removeUser(String username) {
+        whiteList.remove(username);
+    }
+
+
+    private void addAdmin(String username) {
+        if (whiteList.containsKey(username)) {
+            adminList.add(username);
+        }
+    }
+
+    private void removeAdmin(String username) {
+        adminList.remove(username);
+    }
+
+    private void doCommand(Socket clientSocket, Message message) {
+        String command = message.getMessage().substring(1);
+        if (command.startsWith("admin ")) {
+            if (isAdmin(message.getAuthentication())) {
+                doAdminCommand(command.substring(6));
+            }
+        } else if (command.equals("leave")) {
+            removeClient(clientSocket);
+            synchronized (whiteList) {
+                whiteList.remove(message.getAuthentication().getUsername());
+            }
+        }
+    }
+
+    private void removeClient(Socket clientSocket) {
+        synchronized (clientList) {
+            synchronized (clientInputStreams) {
+                try {
+                    clientInputStreams.remove(clientSocket).close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            synchronized (clientOutputStreams) {
+                try {
+                    clientOutputStreams.remove(clientSocket).close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            clientList.remove(clientSocket);
+            try {
+                clientSocket.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+
+    private boolean isAdmin(Authentication authentication) {
+        return adminList.contains(authentication.getUsername());
     }
 
     private void broadcast(Message message) {
