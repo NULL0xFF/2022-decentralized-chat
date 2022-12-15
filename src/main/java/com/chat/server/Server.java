@@ -154,22 +154,26 @@ public class Server {
     }
 
     private void doAdminCommand(String command) {
-        if (command.equals("stop")) {
-            stopServer();
-        } else if (command.startsWith("user ")) {
-            String userCommand = command.substring(5);
-            if (userCommand.startsWith("add ")) {
-                addUser(userCommand.substring(4).split(" "));
-            } else if (userCommand.startsWith("remove ")) {
-                removeUser(userCommand.substring(7).split(" ")[0]);
-            } else if (userCommand.startsWith("admin ")) {
-                String userAdminCommand = userCommand.substring(6);
-                if (userAdminCommand.startsWith("add ")) {
-                    addAdmin(userAdminCommand.substring(4).split(" ")[0]);
-                } else if (userAdminCommand.startsWith("remove ")) {
-                    removeAdmin(userAdminCommand.substring(7).split(" ")[0]);
+        try {
+            if (command.equals("stop")) {
+                stopServer();
+            } else if (command.startsWith("user ")) {
+                String userCommand = command.substring(5);
+                if (userCommand.startsWith("add ")) {
+                    addUser(userCommand.substring(4).split(" "));
+                } else if (userCommand.startsWith("remove ")) {
+                    removeUser(userCommand.substring(7).split(" ")[0]);
+                } else if (userCommand.startsWith("admin ")) {
+                    String userAdminCommand = userCommand.substring(6);
+                    if (userAdminCommand.startsWith("add ")) {
+                        addAdmin(userAdminCommand.substring(4).split(" ")[0]);
+                    } else if (userAdminCommand.startsWith("remove ")) {
+                        removeAdmin(userAdminCommand.substring(7).split(" ")[0]);
+                    }
                 }
             }
+        } catch (IndexOutOfBoundsException e) {
+            System.err.println("command format error");
         }
     }
 
