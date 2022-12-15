@@ -42,31 +42,20 @@ public class Server {
                     Object object = inputStream.readObject();
                     if (object instanceof Authentication auth) {
                         synchronized (whiteList) {
-                            if (whiteList.containsKey(auth.getUsername())) {
-                                if (!whiteList.get(auth.getUsername()).equals(auth.getPassword())) {
-                                    outputStream.writeObject(AUTH_FAILED);
-                                    inputStream.close();
-                                    outputStream.close();
-                                    clientSocket.close();
-                                    continue;
-                                }
-                            }
-                            // New & Authenticated user
-                            outputStream.writeObject(new Message(auth, "authentication successful"));
-                            whiteList.put(auth.getUsername(), auth.getPassword());
-                            synchronized (clientList) {
-                                clientList.add(clientSocket);
-                                synchronized (clientOutputStreams) {
-                                    clientOutputStreams.put(clientSocket, outputStream);
-                                }
-                                synchronized (clientInputStreams) {
-                                    clientInputStreams.put(clientSocket, inputStream);
-                                }
+                            if (isWhiteListed(auth)) {
+                                // White-listed
+                                addClient(clientSocket, outputStream, inputStream, auth);
+                                history(clientSocket);
+                                new Thread(() -> receive(clientSocket)).start();
+                            } else {
+                                // Non whitelist
+                                outputStream.writeObject(AUTH_FAILED);
+                                inputStream.close();
+                                outputStream.close();
+                                clientSocket.close();
                             }
                         }
                     }
-                    history(clientSocket);
-                    new Thread(() -> receive(clientSocket)).start();
                 } catch (IOException | ClassNotFoundException e) {
                     e.printStackTrace();
                 }
@@ -74,6 +63,23 @@ public class Server {
         }).start();
 
         startConsole();
+    }
+
+    private boolean isWhiteListed(Authentication auth) {
+        return whiteList.containsKey(auth.getUsername()) && whiteList.get(auth.getUsername()).equals(auth.getPassword());
+    }
+
+    private void addClient(Socket clientSocket, ObjectOutputStream outputStream, ObjectInputStream inputStream, Authentication auth) throws IOException {
+        outputStream.writeObject(new Message(auth, "authentication successful"));
+        synchronized (clientList) {
+            clientList.add(clientSocket);
+            synchronized (clientOutputStreams) {
+                clientOutputStreams.put(clientSocket, outputStream);
+            }
+            synchronized (clientInputStreams) {
+                clientInputStreams.put(clientSocket, inputStream);
+            }
+        }
     }
 
     private void history(Socket clientSocket) {
